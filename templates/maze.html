@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Visual maze solver</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta1/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-giJF6kkoqNQ00vy+HMDP7azOuL0xtbfIcaT9wjKHr8RbDVddVHyTfAAsrekwKmP1" crossorigin="anonymous">
+    <style>
+        h1 {
+            font-family: 'Open Sans', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            font-weight: 800;
+        }
+
+        table {
+            border-collapse: collapse;
+            font-family: Calibri, sans-serif;
+            margin: auto;
+        }
+
+        tbody {
+            border: none;
+        }
+
+        td {
+            border: none;
+            height: 1.2em;
+            width: 1.2em;
+            text-align: center;
+            padding: 0;
+            background-color: black;
+        }
+    </style>
+</head>
+<body>
+    <div class="container mt-5">
+        <div class="row">
+            <div class="col text-center">
+                <h1>Visual Maze Generator and Solver</h1>
+                <span class="subheading">Developed by Deividas Pelakauskas</span><br>
+                <span class="text-center"><a href="https://www.linkedin.com/in/deividas-pelakauskas/">LINKEDIN</a> | <a href="https://github.com/deividas-pelakauskas">GITHUB</a>  | <a href="https://github.com/deividas-pelakauskas/visual-sudoku-solver">CODE</a></span>
+            </div>
+            <div class="row">
+                <div class="col">
+                    <p class="text-center mt-4">This is a visual maze solver. The maze itself is generated using Randomized Prim's algorithm (source: <a href="https://en.wikipedia.org/wiki/Maze_generation_algorithm#Randomized_Prim's_algorithm">click here</a>). Select maze size, generate it and select one of the maze solving solutions to see a visual representation on how they work.</p>
+                </div>
+            </div>
+        </div>
+        <div class="container">
+            <div class="row">
+               <div class="col-sm">
+                   <b>Generate maze</b>
+                   <form action="/" method="POST">
+                       <select class="form-select" name="maze-size" onchange="this.form.submit()">
+                           <option value="1" {% if maze_size=='1' %} selected {% endif %}>Small (15 x 15)</option>
+                           <option value="2" {% if maze_size=='2' %} selected {% endif %}>Medium (20 x 20)</option>
+                           <option value="3" {% if maze_size=='3' %} selected {% endif %}>Large (30 x 30)</option>
+                           <option value="4" {% if maze_size=='4' %} selected {% endif %}>Extra large (60 x 30)</option>
+                       </select>
+                   </form>
+                   <button id="generate-btn" type="button" class="btn btn-success col-12 mt-1" onclick="generateMaze()">Generate maze</button>
+               </div>
+               <div class="col-sm">
+                   <b>Solve maze</b>
+                   <select id="algorithm" class="form-select" onchange="setSolvingAlgorithm()">
+                       <option value="dfs">Depth-first search (Recursion)</option>
+                       <option value="bfs">Breadth-first search</option>
+                       <option value="dijkstra">Dijkstra's algorithm</option>
+                   </select>
+                   <button id="solve-btn" type="button" class="btn btn-success col-12 mt-1" onclick="solveMaze()" disabled>Solve maze</button>
+               </div>
+            </div>
+            <button type="button" class="btn btn-warning col-12 mt-1" onclick="refreshPage()">Refresh maze</button>
+        </div>
+    </div>
+
+    <div class="container mt-4">
+        <hr>
+        <p class="text-center mt-2"><b>Steps to solve this maze:</b></p>
+        <div class="row">
+            <div class="col-sm">
+                <p class="text-center">Depth-first search (Recursion) - <span id="dfs-count">∞</span></p>
+            </div>
+            <div class="col-sm">
+                <p class="text-center">Breadth-first search - <span id="bfs-count">∞</span></p>
+            </div>
+            <div class="col-sm">
+                <p class="text-center">Dijkstra's algorithm - <span id="dijkstra-count">∞</span></p>
+            </div>
+        </div>
+        <hr>
+    </div>
+
+    <div class="container mt-4 mb-4">
+        <table>
+            <tbody>
+                {% for maze in maze_grid %}
+                    {% set count = loop.index0 %}
+                    <tr>
+                        {% for cell in maze %}
+                        {% set count2 = count|string + "-" + loop.index0|string %}
+                        {% if cell == "w" %}
+                        <td id="wall-{{ count2 }}">
+                        {% else %}
+                        <td id="cell-{{ count2 }}">
+                        {% endif %}
+                        {% endfor %}
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+<script>
+    var maze = {{ maze_path|tojson }}  // get maze generation path
+    var maze_bfs = {{ maze_bfs_path|tojson }}  // get solved maze path (BFS algorithm)
+    var maze_bfs_short_path = {{ maze_bfs_shortest_path|tojson }}  // get shortest path of maze solved with BFS
+    var maze_dfs = {{ maze_dfs_path|tojson }}  // get solved maze path (DFS algorithm)
+    var maze_dfs_path = {{ maze_dfs_final_path|tojson }}  // get final path of maze solved with DFS
+    var maze_dijkstra = {{ maze_dijkstra_path|tojson }}  // get solved maze path (Dijkstra's algorithm)
+    var maze_dijkstra_short_path = {{ maze_dijkstra_shortest_path|tojson }}  // get shortest path of maze solved with Dijkstra's algorithm
+    var solve_algorithm = document.getElementById("algorithm").value; // set solving algorithm that user will choose, by default it is dfs
+
+    // On select change of algorithm change which algorithm to use when solve maze function is called
+    function setSolvingAlgorithm() {
+        algorithm = document.getElementById("algorithm");
+        solve_algorithm = algorithm.value;
+    }
+
+    // Get solving algorithm
+    function getSolvingAlgorithm() {
+        mazeSolve = {}
+        if (solve_algorithm == "dfs") {
+            mazeSolve = maze_dfs;
+        } else if (solve_algorithm == "bfs") {
+            mazeSolve = maze_bfs;
+        } else if (solve_algorithm == "dijkstra") {
+            mazeSolve = maze_dijkstra;
+        }
+        return mazeSolve;
+    }
+
+
+    // Get shortest path of solved maze
+    function getShortestPath() {
+        var mazeSolve = {};
+        if (solve_algorithm == "dfs"){
+            mazeSolve = maze_dfs_path;
+        } else if (solve_algorithm == "bfs") {
+            mazeSolve = maze_bfs_short_path;
+        } else if (solve_algorithm == "dijkstra") {
+            mazeSolve = maze_dijkstra_short_path;
+        }
+        return mazeSolve;
+    }
+
+    // Colorize whole maze (black - wall, white - cell, green - entry point, red - exit point)
+    function generateMaze() {
+        document.getElementById("generate-btn").disabled = true;
+        var i = 0;
+        var timer = window.setInterval(function(){
+            if (i == maze.length){
+                window.clearInterval(timer);
+                document.getElementById("solve-btn").disabled = false;
+                countSteps();
+            }
+            currentCell = document.getElementById("cell-" + maze[i][0] + "-" + maze[i][1]);
+            if (i == maze.length - 2) {  // if entry point
+                currentCell.style.backgroundColor = "#008000";
+            } else if (i == maze.length - 1) {  // if exit point
+                currentCell.style.backgroundColor = "#FF0000";
+            } else {
+                currentCell.style.backgroundColor = "#FFF";
+            }
+            i = i + 1;
+        }, 15);
+    }
+
+    // Main function that solves the maze
+    function solveMaze() {
+        // disable solve button
+        document.getElementById("solve-btn").disabled = true;
+        var maze_solve = getSolvingAlgorithm();
+        var i = 0;
+        var timer = window.setInterval(function(){
+            if (i == maze_solve.length){
+                window.clearInterval(timer);
+                // when maze is solved, short shortest path
+                shortestPath();
+            }
+            currentCell = document.getElementById("cell-" + maze_solve[i][0] + "-" + maze_solve[i][1]);
+            currentCell.style.backgroundColor = "#008000";
+            i = i + 1;
+        }, 45);
+    }
+
+    // Function that shows shortest path
+    function shortestPath() {
+        var maze_solve = getShortestPath();
+        var i = 0;
+        var timer = window.setInterval(function(){
+            if (i == maze_solve.length){
+                window.clearInterval(timer);
+            }
+            currentCell = document.getElementById("cell-" + maze_solve[i][0] + "-" + maze_solve[i][1]);
+            currentCell.style.backgroundColor = "#FF0000";
+            i = i + 1;
+        }, 30);
+    }
+
+    // Count how many steps it will take to solve the maze with different algorithms
+    function countSteps() {
+        document.getElementById("dfs-count").innerHTML = {{ maze_dfs_path|length }};
+        document.getElementById("bfs-count").innerHTML = {{ maze_bfs_path|length }};
+        document.getElementById("dijkstra-count").innerHTML = {{ maze_dijkstra_path|length }};
+    }
+
+    function refreshPage() {
+        // Refreshes page
+        location.reload();
+        return false;
+    }
+</script>
+</body>
+</html>
