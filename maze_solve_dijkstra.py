@@ -8,6 +8,7 @@ class Cell:
         self.col = col
         self.weight = weight
 
+    # for comparison in priority queue
     def __lt__(self, other):
         return self.weight < other.weight
 
