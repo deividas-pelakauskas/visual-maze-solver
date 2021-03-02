@@ -2,7 +2,7 @@
 Visual maze solver solves a maze using three different algorithms
 
 # General info
-This project shows how a maze is generated visually using randomized Prim's algorithm ([https://en.wikipedia.org/wiki/Maze_generation_algorithm#Randomized_Prim's_algorithm](source)) and how it is solved using one of the following:
+This project shows how a maze is generated visually using randomized Prim's algorithm ([source](https://en.wikipedia.org/wiki/Maze_generation_algorithm#Randomized_Prim's_algorithm)) and how it is solved using one of the following:
 * Depth-First search (Recursion)
 * Breadth-First search
 * Dijkstra's algorithm. 
